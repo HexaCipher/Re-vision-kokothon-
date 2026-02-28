@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { userId, title, subject, content, questionCount, questionTypes } = body;
+    const { userId, title, subject, content, questionCount, questionTypes, difficulty } = body;
 
     if (!userId || !title || !subject || !content || !questionCount) {
       return NextResponse.json(
@@ -45,10 +45,11 @@ export async function POST(request: NextRequest) {
     console.log("Starting quiz generation...");
     console.log("Content length:", content.length);
 
-    // Determine question type
+    // Determine question type and difficulty
     const questionType = questionTypes[0] || "mcq";
+    const difficultyLevel = difficulty || "medium";
 
-    const prompt = generatePrompt(content, questionCount, questionType);
+    const prompt = generatePrompt(content, questionCount, questionType, difficultyLevel);
     
     console.log("Calling Gemini API...");
     
@@ -81,15 +82,10 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Try to save to database, but don't fail if it times out
-    let quizId = `local-${Date.now()}`;
+    // Save to Firebase database
+    console.log("Saving quiz to Firebase...");
     try {
-      console.log("Attempting to save to database...");
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database timeout')), 5000)
-      );
-      
-      const savePromise = createQuiz({
+      const quiz = await createQuiz({
         userId,
         title,
         subject,
@@ -98,15 +94,15 @@ export async function POST(request: NextRequest) {
         questions,
       });
       
-      const quiz = await Promise.race([savePromise, timeoutPromise]) as any;
-      quizId = quiz.id;
-      console.log("Quiz saved to database:", quizId);
+      console.log("Quiz saved to Firebase successfully:", quiz.id);
+      return NextResponse.json({ quizId: quiz.id, questions });
     } catch (dbError: any) {
-      console.warn("Database save failed (continuing with local quiz):", dbError.message);
-      // Continue without saving - quiz will work but won't persist
+      console.error("Firebase save failed:", dbError.message);
+      return NextResponse.json(
+        { error: "Failed to save quiz to database. Please try again." },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({ quizId, questions });
   } catch (error: any) {
     console.error("Error generating quiz:", error);
     console.error("Error details:", {
@@ -124,9 +120,39 @@ export async function POST(request: NextRequest) {
 function generatePrompt(
   content: string,
   questionCount: number,
-  questionType: string
+  questionType: string,
+  difficulty: string
 ): string {
+  const difficultyInstructions = {
+    easy: `
+DIFFICULTY: EASY
+- Focus on basic recall and simple facts directly stated in the notes
+- Questions should test recognition and memory
+- Use straightforward language
+- Avoid tricky or nuanced questions
+- Good for beginners or initial review`,
+    medium: `
+DIFFICULTY: MEDIUM  
+- Test understanding and comprehension of concepts
+- Include some questions that require connecting ideas
+- Mix of recall and application questions
+- Require students to understand the material, not just memorize
+- Appropriate for regular studying`,
+    hard: `
+DIFFICULTY: HARD
+- Focus on application, analysis, and critical thinking
+- Include questions that require synthesizing multiple concepts
+- Add scenarios or case-based questions
+- Test deep understanding and ability to apply knowledge
+- Include tricky but fair questions that challenge assumptions
+- Appropriate for exam preparation`
+  };
+
+  const difficultyPrompt = difficultyInstructions[difficulty as keyof typeof difficultyInstructions] || difficultyInstructions.medium;
+
   const basePrompt = `You are an expert quiz generator. Analyze the following study notes and generate exactly ${questionCount} high-quality questions that test understanding of the key concepts.
+
+${difficultyPrompt}
 
 Study Notes:
 ${content}

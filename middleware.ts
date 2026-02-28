@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/(.*)',
+  '/quiz/share/(.*)', // Public shared quiz routes
 ])
 
 export default clerkMiddleware(async (auth, request) => {

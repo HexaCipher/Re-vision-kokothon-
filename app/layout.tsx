@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RE-vision - Transform Your Notes Into Interactive Quizzes",
+  title: "Re-vision - Transform Your Notes Into Interactive Quizzes",
   description: "Upload your study notes and get AI-generated quizzes instantly. Master any subject through active recall.",
 };
 

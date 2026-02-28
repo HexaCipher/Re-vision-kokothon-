@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,89 +9,102 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Brain, Clock, ChevronRight, ChevronLeft, AlertTriangle } from "lucide-react";
+import { Brain, Clock, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Question } from "@/types";
 import { toast } from "sonner";
 import Link from "next/link";
 
-interface QuizTakingClientProps {
-  quiz: {
-    id: string;
-    title: string;
-    subject: string;
-    questions: Question[];
-    timerMode?: "none" | "quiz" | "question";
-    timeLimit?: number; // minutes for quiz mode, seconds for question mode
-  };
-  userId: string;
+interface Question {
+  id: string;
+  question: string;
+  type: "mcq" | "true_false" | "fill_blank";
+  options?: string[];
+  correctAnswer: string;
 }
 
-export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps) {
+interface Quiz {
+  id: string;
+  title: string;
+  subject: string;
+  questions: Question[];
+}
+
+export default function SharedQuizTakePage() {
+  const params = useParams();
   const router = useRouter();
+  const shareCode = params.code as string;
+
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Timer state
-  const timerMode = quiz.timerMode || "none";
-  const timeLimit = quiz.timeLimit || 10;
-  const [timeRemaining, setTimeRemaining] = useState(() => {
-    if (timerMode === "quiz") return timeLimit * 60; // Convert minutes to seconds
-    if (timerMode === "question") return timeLimit; // Already in seconds
-    return 0;
-  });
-  const hasAutoSubmittedRef = useRef(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestId, setGuestId] = useState("");
 
-  const currentQuestion = quiz.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
-  const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1;
-
-  // Calculate warning thresholds
-  const getWarningThreshold = () => {
-    if (timerMode === "quiz") return 60; // 1 minute warning for quiz mode
-    if (timerMode === "question") return Math.min(10, timeLimit * 0.3); // 10 seconds or 30% of time
-    return 0;
-  };
-  const warningThreshold = getWarningThreshold();
-  const isTimeWarning = timerMode !== "none" && timeRemaining <= warningThreshold && timeRemaining > 0;
-  const isTimeUp = timerMode !== "none" && timeRemaining <= 0;
-
-  // Timer for "none" mode (elapsed time counter)
   useEffect(() => {
-    if (timerMode !== "none") return;
+    // Get guest info
+    const storedGuestId = sessionStorage.getItem("guestId");
+    const storedGuestName = sessionStorage.getItem("guestName");
     
+    if (!storedGuestId || !storedGuestName) {
+      router.push(`/quiz/share/${shareCode}`);
+      return;
+    }
+
+    setGuestId(storedGuestId);
+    setGuestName(storedGuestName);
+
+    // Get quiz data
+    const storedQuiz = sessionStorage.getItem(`shared-quiz-${shareCode}`);
+    if (storedQuiz) {
+      const quizData = JSON.parse(storedQuiz);
+      // Fetch full quiz with questions
+      fetchFullQuiz(quizData.id);
+    } else {
+      fetchQuizByCode();
+    }
+  }, [shareCode]);
+
+  const fetchFullQuiz = async (quizId: string) => {
+    try {
+      const response = await fetch(`/api/shared/${shareCode}`);
+      const data = await response.json();
+      if (response.ok) {
+        setQuiz(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch quiz:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchQuizByCode = async () => {
+    try {
+      const response = await fetch(`/api/shared/${shareCode}`);
+      const data = await response.json();
+      if (response.ok) {
+        setQuiz(data);
+      } else {
+        router.push(`/quiz/share/${shareCode}`);
+      }
+    } catch (err) {
+      router.push(`/quiz/share/${shareCode}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Timer
+  useEffect(() => {
+    if (!quiz) return;
     const interval = setInterval(() => {
       setTimeElapsed((prev) => prev + 1);
     }, 1000);
-
     return () => clearInterval(interval);
-  }, [timerMode]);
-
-  // Timer for countdown modes (quiz/question)
-  useEffect(() => {
-    if (timerMode === "none" || isSubmitting) return;
-
-    const interval = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [timerMode, isSubmitting]);
-
-  // Reset question timer when changing questions in "question" mode
-  useEffect(() => {
-    if (timerMode === "question") {
-      setTimeRemaining(timeLimit);
-    }
-  }, [currentQuestionIndex, timerMode, timeLimit]);
+  }, [quiz]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -99,12 +112,20 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const formatCountdown = (seconds: number) => {
-    if (seconds <= 0) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  if (loading || !quiz) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-purple-500 mx-auto mb-4" />
+          <p className="text-slate-400">Loading quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = quiz.questions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
+  const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1;
 
   const handleAnswerChange = (value: string) => {
     setAnswers({
@@ -113,30 +134,6 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
     });
   };
 
-  // Auto-advance for question mode when time runs out
-  const handleQuestionTimeUp = useCallback(() => {
-    if (isLastQuestion) {
-      // Submit the quiz when time runs out on the last question
-      handleForceSubmit();
-    } else {
-      toast.error("Time's up! Moving to the next question.");
-      setCurrentQuestionIndex((prev) => prev + 1);
-    }
-  }, [isLastQuestion]);
-
-  // Effect to handle time up scenarios
-  useEffect(() => {
-    if (isTimeUp && !isSubmitting && !hasAutoSubmittedRef.current) {
-      if (timerMode === "quiz") {
-        hasAutoSubmittedRef.current = true;
-        toast.error("Time's up! Submitting your quiz...");
-        handleForceSubmit();
-      } else if (timerMode === "question") {
-        handleQuestionTimeUp();
-      }
-    }
-  }, [isTimeUp, timerMode, isSubmitting, handleQuestionTimeUp]);
-
   const handleNext = () => {
     if (!answers[currentQuestion.id]) {
       toast.error("Please select an answer before continuing");
@@ -144,7 +141,7 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
     }
 
     if (isLastQuestion) {
-      handleForceSubmit();
+      handleSubmit();
     } else {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
@@ -156,9 +153,12 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
     }
   };
 
-  // Force submit (used by auto-submit when time runs out)
-  const handleForceSubmit = async () => {
-    if (isSubmitting) return;
+  const handleSubmit = async () => {
+    if (!answers[currentQuestion.id]) {
+      toast.error("Please answer the current question before submitting");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -170,60 +170,40 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
         }
       });
 
-      const attemptData = {
-        score,
-        totalQuestions: quiz.questions.length,
-        answers,
-        completedAt: new Date().toISOString(),
-      };
-
-      // Always save attempt to sessionStorage for reliable access on results page
-      sessionStorage.setItem(`attempt-${quiz.id}`, JSON.stringify(attemptData));
-
-      // For local quizzes, just redirect
-      if (quiz.id.startsWith('local-')) {
-        router.push(`/quiz/${quiz.id}/results`);
-        return;
-      }
-
-      // Try to save attempt to database (but don't block on it)
+      // Save attempt to database
       try {
-        const response = await fetch("/api/attempts", {
+        await fetch("/api/shared/attempts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             quizId: quiz.id,
-            userId,
+            guestId,
+            guestName,
             score,
             totalQuestions: quiz.questions.length,
             answers,
           }),
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          router.push(`/quiz/${quiz.id}/results?attemptId=${data.attemptId}`);
-          return;
-        }
-      } catch (dbError) {
-        console.error("Failed to save to database:", dbError);
+      } catch (err) {
+        console.error("Failed to save attempt:", err);
       }
 
-      // If DB save failed, still redirect (sessionStorage has the data)
-      router.push(`/quiz/${quiz.id}/results`);
-    } catch (error) {
-      console.error("Error submitting quiz:", error);
-      // On any error, try to save locally and continue
-      const attemptData = {
-        score: quiz.questions.filter(q => 
-          answers[q.id]?.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim()
-        ).length,
+      // Store results in sessionStorage
+      const resultData = {
+        score,
         totalQuestions: quiz.questions.length,
         answers,
+        guestName,
+        timeElapsed,
         completedAt: new Date().toISOString(),
       };
-      sessionStorage.setItem(`attempt-${quiz.id}`, JSON.stringify(attemptData));
-      router.push(`/quiz/${quiz.id}/results`);
+      sessionStorage.setItem(`shared-result-${shareCode}`, JSON.stringify(resultData));
+
+      router.push(`/quiz/share/${shareCode}/results`);
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+      toast.error("Failed to submit quiz");
+      setIsSubmitting(false);
     }
   };
 
@@ -234,46 +214,25 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
                   <Brain className="w-6 h-6 text-white" />
                 </div>
               </Link>
               <div>
                 <h1 className="text-lg font-bold text-white">{quiz.title}</h1>
-                <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                  {quiz.subject}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                    {quiz.subject}
+                  </Badge>
+                  <span className="text-sm text-slate-400">Playing as {guestName}</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Timer Display */}
-              {timerMode === "none" ? (
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Clock className="w-5 h-5" />
-                  <span className="font-mono text-lg">{formatTime(timeElapsed)}</span>
-                </div>
-              ) : (
-                <motion.div
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    isTimeWarning
-                      ? "bg-red-500/20 text-red-400"
-                      : "bg-slate-800/50 text-slate-300"
-                  }`}
-                  animate={isTimeWarning ? { scale: [1, 1.05, 1] } : {}}
-                  transition={{ repeat: isTimeWarning ? Infinity : 0, duration: 1 }}
-                >
-                  {isTimeWarning && <AlertTriangle className="w-5 h-5" />}
-                  <Clock className={`w-5 h-5 ${isTimeWarning ? "text-red-400" : ""}`} />
-                  <span className={`font-mono text-lg font-bold ${isTimeWarning ? "text-red-400" : ""}`}>
-                    {formatCountdown(timeRemaining)}
-                  </span>
-                  {timerMode === "question" && (
-                    <span className="text-xs text-slate-500 ml-1">/ question</span>
-                  )}
-                </motion.div>
-              )}
+            <div className="flex items-center gap-2 text-slate-400">
+              <Clock className="w-5 h-5" />
+              <span className="font-mono text-lg">{formatTime(timeElapsed)}</span>
             </div>
           </div>
 
@@ -300,25 +259,6 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
               transition={{ duration: 0.3 }}
             >
               <Card className="p-8 bg-slate-900/50 border-slate-800/50 backdrop-blur">
-                {/* Question Timer Progress (for question mode) */}
-                {timerMode === "question" && (
-                  <div className="mb-6">
-                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <motion.div
-                        className={`h-full transition-colors ${
-                          isTimeWarning ? "bg-red-500" : "bg-gradient-to-r from-purple-500 to-blue-500"
-                        }`}
-                        initial={{ width: "100%" }}
-                        animate={{ width: `${(timeRemaining / timeLimit) * 100}%` }}
-                        transition={{ duration: 0.5 }}
-                      />
-                    </div>
-                    <p className={`text-xs mt-1 text-right ${isTimeWarning ? "text-red-400" : "text-slate-500"}`}>
-                      {timeRemaining} seconds remaining
-                    </p>
-                  </div>
-                )}
-
                 {/* Question */}
                 <div className="mb-8">
                   <div className="flex items-start gap-4 mb-4">

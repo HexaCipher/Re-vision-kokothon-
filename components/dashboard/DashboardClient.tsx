@@ -14,6 +14,7 @@ import {
   Trash2,
   Play,
   LogOut,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -29,6 +30,7 @@ import {
 import { useClerk } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import ShareModal from "@/components/quiz/ShareModal";
 
 interface Quiz {
   id: string;
@@ -64,74 +66,39 @@ export default function DashboardClient({
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [allQuizzes, setAllQuizzes] = useState<Quiz[]>(serverQuizzes);
   const [stats, setStats] = useState(serverStats);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedQuizForShare, setSelectedQuizForShare] = useState<Quiz | null>(null);
 
-  // Load local quizzes from localStorage on mount
+  const handleShareQuiz = (quiz: Quiz) => {
+    setSelectedQuizForShare(quiz);
+    setShareModalOpen(true);
+  };
+
+  // Sync with server data when it changes
   useEffect(() => {
-    try {
-      const localQuizzes = JSON.parse(localStorage.getItem('local-quizzes') || '[]');
-      
-      // Merge server quizzes with local quizzes (avoiding duplicates)
-      const serverIds = new Set(serverQuizzes.map(q => q.id));
-      const uniqueLocalQuizzes = localQuizzes.filter((q: Quiz) => !serverIds.has(q.id));
-      
-      const merged = [...serverQuizzes, ...uniqueLocalQuizzes].sort((a, b) => {
-        const dateA = new Date(a.created_at || a.createdAt || 0);
-        const dateB = new Date(b.created_at || b.createdAt || 0);
-        return dateB.getTime() - dateA.getTime();
-      });
-      
-      setAllQuizzes(merged);
-      
-      // Update stats to include local quizzes
-      const localAttempts = localQuizzes.reduce((acc: number, q: Quiz) => {
-        const attempt = sessionStorage.getItem(`attempt-${q.id}`);
-        return attempt ? acc + 1 : acc;
-      }, 0);
-      
-      // Calculate best score from local attempts
-      let localBestScore = 0;
-      localQuizzes.forEach((q: Quiz) => {
-        const attemptStr = sessionStorage.getItem(`attempt-${q.id}`);
-        if (attemptStr) {
-          const attempt = JSON.parse(attemptStr);
-          const percentage = (attempt.score / attempt.totalQuestions) * 100;
-          if (percentage > localBestScore) localBestScore = percentage;
-        }
-      });
-      
-      setStats({
-        totalQuizzes: serverStats.totalQuizzes + uniqueLocalQuizzes.length,
-        totalAttempts: serverStats.totalAttempts + localAttempts,
-        bestScore: Math.max(serverStats.bestScore, Math.round(localBestScore)),
-      });
-    } catch (error) {
-      console.error("Error loading local quizzes:", error);
-    }
+    setAllQuizzes(serverQuizzes);
+    setStats(serverStats);
   }, [serverQuizzes, serverStats]);
 
   const handleDeleteQuiz = async (quizId: string) => {
     setIsDeleting(quizId);
     try {
-      // If it's a local quiz, remove from localStorage
-      if (quizId.startsWith('local-')) {
-        const localQuizzes = JSON.parse(localStorage.getItem('local-quizzes') || '[]');
-        const filtered = localQuizzes.filter((q: Quiz) => q.id !== quizId);
-        localStorage.setItem('local-quizzes', JSON.stringify(filtered));
-        sessionStorage.removeItem(`quiz-${quizId}`);
-        sessionStorage.removeItem(`attempt-${quizId}`);
-        setAllQuizzes(prev => prev.filter(q => q.id !== quizId));
-        toast.success("Quiz deleted successfully");
-        return;
-      }
-      
       const response = await fetch(`/api/quizzes/${quizId}`, {
         method: "DELETE",
       });
 
       if (!response.ok) throw new Error("Failed to delete quiz");
 
+      // Remove from state immediately for instant UI update
+      setAllQuizzes(prev => prev.filter(q => q.id !== quizId));
+      setStats(prev => ({ ...prev, totalQuizzes: Math.max(0, prev.totalQuizzes - 1) }));
+      
+      // Clear any session/local data for this quiz
+      sessionStorage.removeItem(`quiz-${quizId}`);
+      sessionStorage.removeItem(`attempt-${quizId}`);
+      localStorage.removeItem(`quiz-history-${quizId}`);
+      
       toast.success("Quiz deleted successfully");
-      router.refresh();
     } catch (error) {
       toast.error("Failed to delete quiz");
     } finally {
@@ -150,7 +117,7 @@ export default function DashboardClient({
                 <Brain className="w-6 h-6 text-white" />
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                RE-vision
+                Re-vision
               </span>
             </Link>
 
@@ -299,15 +266,28 @@ export default function DashboardClient({
                     <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
                       {quiz.subject}
                     </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      onClick={() => handleDeleteQuiz(quiz.id)}
-                      disabled={isDeleting === quiz.id}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      {/* Share button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                        onClick={() => handleShareQuiz(quiz)}
+                        title="Share quiz"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        onClick={() => handleDeleteQuiz(quiz.id)}
+                        disabled={isDeleting === quiz.id}
+                        title="Delete quiz"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">
@@ -335,6 +315,19 @@ export default function DashboardClient({
           </div>
         )}
       </div>
+
+      {/* Share Modal */}
+      {selectedQuizForShare && (
+        <ShareModal
+          isOpen={shareModalOpen}
+          onClose={() => {
+            setShareModalOpen(false);
+            setSelectedQuizForShare(null);
+          }}
+          quizId={selectedQuizForShare.id}
+          quizTitle={selectedQuizForShare.title}
+        />
+      )}
     </div>
   );
 }

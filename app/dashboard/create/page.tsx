@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Brain, FileText, Upload, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
+import { Brain, FileText, Upload, Sparkles, ArrowLeft, Loader2, Zap, Flame, Trophy, Clock, Timer, TimerOff, X, CheckCircle, FileUp } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -27,6 +27,16 @@ export default function CreateQuizPage() {
   const [step, setStep] = useState(1);
   const [inputType, setInputType] = useState<"text" | "pdf">("text");
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // PDF upload state
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [pdfMetadata, setPdfMetadata] = useState<{ pages?: number; characters: number; fileName: string; fileType?: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Supported file types
+  const SUPPORTED_EXTENSIONS = ".pdf,.docx,.txt";
+  const SUPPORTED_MIMES = "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
 
   // Form data
   const [formData, setFormData] = useState({
@@ -35,14 +45,77 @@ export default function CreateQuizPage() {
     content: "",
     questionCount: 10,
     questionTypes: ["mcq"] as string[],
+    difficulty: "medium" as "easy" | "medium" | "hard",
+    timerMode: "none" as "none" | "quiz" | "question",
+    timeLimit: 10, // minutes for quiz mode, seconds for question mode
   });
+
+  // Handle document file selection and upload
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please select a PDF, DOCX, or TXT file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be less than 10MB");
+      return;
+    }
+
+    setPdfFile(file);
+    setIsUploadingPdf(true);
+    setPdfMetadata(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload/document", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to process document");
+      }
+
+      // Update form content with extracted text
+      setFormData((prev) => ({ ...prev, content: data.text }));
+      setPdfMetadata(data.metadata);
+      
+      const pageInfo = data.metadata.pages ? ` from ${data.metadata.pages} page(s)` : "";
+      toast.success(`Extracted ${data.metadata.characters.toLocaleString()} characters${pageInfo}`);
+    } catch (error: any) {
+      console.error("Document upload error:", error);
+      toast.error(error.message || "Failed to process document");
+      setPdfFile(null);
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setPdfFile(null);
+    setPdfMetadata(null);
+    setFormData((prev) => ({ ...prev, content: "" }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleNext = () => {
     if (step === 1) {
       setStep(2);
     } else if (step === 2) {
-      if (inputType === "text" && !formData.content.trim()) {
-        toast.error("Please enter your notes");
+      if (!formData.content.trim()) {
+        toast.error(inputType === "pdf" ? "Please upload a document" : "Please enter your notes");
         return;
       }
       setStep(3);
@@ -86,6 +159,7 @@ export default function CreateQuizPage() {
           content: formData.content,
           questionCount: formData.questionCount,
           questionTypes: formData.questionTypes,
+          difficulty: formData.difficulty,
         }),
       });
 
@@ -100,22 +174,18 @@ export default function CreateQuizPage() {
 
       toast.success("Quiz generated successfully!");
       
-      // Store quiz data for the take page
+      // Store quiz data in sessionStorage for the take page (includes timer settings)
       const quizData = {
         id: data.quizId,
         title: formData.title,
         subject: formData.subject,
+        difficulty: formData.difficulty,
+        timerMode: formData.timerMode,
+        timeLimit: formData.timeLimit,
         questions: data.questions,
         createdAt: new Date().toISOString(),
       };
-      
-      // Store in sessionStorage for the take page
       sessionStorage.setItem(`quiz-${data.quizId}`, JSON.stringify(quizData));
-      
-      // Also store in localStorage for the dashboard to display
-      const existingQuizzes = JSON.parse(localStorage.getItem('local-quizzes') || '[]');
-      existingQuizzes.unshift(quizData);
-      localStorage.setItem('local-quizzes', JSON.stringify(existingQuizzes));
       
       router.push(`/quiz/${data.quizId}/take`);
     } catch (error: any) {
@@ -235,20 +305,16 @@ export default function CreateQuizPage() {
                         }`}
                       />
                       <h3 className="text-lg font-bold text-white mb-2">
-                        Upload PDF
+                        Upload Document
                       </h3>
                       <p className="text-sm text-slate-400">
-                        Upload a PDF of your study notes
+                        PDF, DOCX, or TXT files supported
                       </p>
-                      <Badge className="mt-2 bg-blue-500/20 text-blue-400 border-blue-500/30">
-                        Coming Soon
-                      </Badge>
                     </button>
                   </div>
 
                   <Button
                     onClick={handleNext}
-                    disabled={inputType === "pdf"}
                     className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
                     Continue
@@ -266,39 +332,143 @@ export default function CreateQuizPage() {
               >
                 <Card className="p-8 bg-slate-900/50 border-slate-800/50 backdrop-blur">
                   <h2 className="text-2xl font-bold text-white mb-6">
-                    Enter Your Notes
+                    {inputType === "pdf" ? "Upload Your Document" : "Enter Your Notes"}
                   </h2>
 
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="content" className="text-slate-300">
-                        Paste your study notes here
-                      </Label>
-                      <Textarea
-                        id="content"
-                        value={formData.content}
-                        onChange={(e) =>
-                          setFormData({ ...formData, content: e.target.value })
-                        }
-                        placeholder="Paste your notes, lecture content, or any text you want to learn from..."
-                        className="mt-2 min-h-[300px] bg-slate-800/50 border-slate-700 text-white"
-                      />
-                      <p className="text-sm text-slate-400 mt-2">
-                        {formData.content.length} characters
-                      </p>
+                  {inputType === "text" ? (
+                    // Text Input Mode
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="content" className="text-slate-300">
+                          Paste your study notes here
+                        </Label>
+                        <Textarea
+                          id="content"
+                          value={formData.content}
+                          onChange={(e) =>
+                            setFormData({ ...formData, content: e.target.value })
+                          }
+                          placeholder="Paste your notes, lecture content, or any text you want to learn from..."
+                          className="mt-2 min-h-[300px] bg-slate-800/50 border-slate-700 text-white"
+                        />
+                        <p className="text-sm text-slate-400 mt-2">
+                          {formData.content.length} characters
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    // Document Upload Mode
+                    <div className="space-y-4">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept={SUPPORTED_EXTENSIONS}
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+
+                      {!pdfFile ? (
+                        // Upload dropzone
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          className="border-2 border-dashed border-slate-700 rounded-xl p-12 text-center cursor-pointer hover:border-purple-500/50 hover:bg-purple-500/5 transition-all"
+                        >
+                          <FileUp className="w-16 h-16 mx-auto mb-4 text-slate-500" />
+                          <p className="text-lg font-medium text-white mb-2">
+                            Click to upload your document
+                          </p>
+                          <p className="text-sm text-slate-400 mb-1">
+                            PDF, DOCX, or TXT files
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Maximum file size: 10MB
+                          </p>
+                        </div>
+                      ) : isUploadingPdf ? (
+                        // Uploading state
+                        <div className="border-2 border-purple-500/30 rounded-xl p-12 text-center bg-purple-500/5">
+                          <Loader2 className="w-16 h-16 mx-auto mb-4 text-purple-400 animate-spin" />
+                          <p className="text-lg font-medium text-white mb-2">
+                            Processing your document...
+                          </p>
+                          <p className="text-sm text-slate-400">
+                            Extracting text from {pdfFile.name}
+                          </p>
+                        </div>
+                      ) : pdfMetadata ? (
+                        // Success state
+                        <div className="border-2 border-green-500/30 rounded-xl p-6 bg-green-500/5">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                                <CheckCircle className="w-6 h-6 text-green-400" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">{pdfMetadata.fileName}</p>
+                                <p className="text-sm text-slate-400">
+                                  {pdfMetadata.fileType && <Badge className="mr-2 bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">{pdfMetadata.fileType}</Badge>}
+                                  {pdfMetadata.pages && `${pdfMetadata.pages} page(s) • `}{pdfMetadata.characters.toLocaleString()} characters extracted
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleRemoveFile}
+                              className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                              <X className="w-5 h-5 text-slate-400" />
+                            </button>
+                          </div>
+
+                          {/* Preview of extracted text */}
+                          <div className="mt-4">
+                            <Label className="text-slate-400 text-sm">Extracted Text Preview</Label>
+                            <div className="mt-2 p-4 bg-slate-800/50 rounded-lg max-h-[200px] overflow-y-auto">
+                              <p className="text-sm text-slate-300 whitespace-pre-wrap">
+                                {formData.content.slice(0, 1000)}
+                                {formData.content.length > 1000 && "..."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Error state - file selected but no metadata
+                        <div className="border-2 border-red-500/30 rounded-xl p-6 bg-red-500/5">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center">
+                                <X className="w-6 h-6 text-red-400" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">Failed to process document</p>
+                                <p className="text-sm text-slate-400">
+                                  Please try a different file
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleRemoveFile}
+                              className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                              <X className="w-5 h-5 text-slate-400" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex gap-4 mt-6">
                     <Button
                       onClick={() => setStep(1)}
                       variant="outline"
                       className="flex-1"
+                      disabled={isUploadingPdf}
                     >
                       Back
                     </Button>
                     <Button
                       onClick={handleNext}
+                      disabled={isUploadingPdf || !formData.content.trim()}
                       className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                     >
                       Continue
@@ -388,6 +558,67 @@ export default function CreateQuizPage() {
                     </div>
 
                     <div>
+                      <Label className="text-slate-300 mb-3 block">
+                        Difficulty Level
+                      </Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, difficulty: "easy" })}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            formData.difficulty === "easy"
+                              ? "border-green-500 bg-green-500/10"
+                              : "border-slate-700 hover:border-slate-600"
+                          }`}
+                        >
+                          <Zap className={`w-6 h-6 mx-auto mb-2 ${
+                            formData.difficulty === "easy" ? "text-green-400" : "text-slate-400"
+                          }`} />
+                          <p className={`text-sm font-medium ${
+                            formData.difficulty === "easy" ? "text-green-400" : "text-slate-300"
+                          }`}>Easy</p>
+                          <p className="text-xs text-slate-500 mt-1">Basic recall</p>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, difficulty: "medium" })}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            formData.difficulty === "medium"
+                              ? "border-yellow-500 bg-yellow-500/10"
+                              : "border-slate-700 hover:border-slate-600"
+                          }`}
+                        >
+                          <Flame className={`w-6 h-6 mx-auto mb-2 ${
+                            formData.difficulty === "medium" ? "text-yellow-400" : "text-slate-400"
+                          }`} />
+                          <p className={`text-sm font-medium ${
+                            formData.difficulty === "medium" ? "text-yellow-400" : "text-slate-300"
+                          }`}>Medium</p>
+                          <p className="text-xs text-slate-500 mt-1">Understanding</p>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, difficulty: "hard" })}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            formData.difficulty === "hard"
+                              ? "border-red-500 bg-red-500/10"
+                              : "border-slate-700 hover:border-slate-600"
+                          }`}
+                        >
+                          <Trophy className={`w-6 h-6 mx-auto mb-2 ${
+                            formData.difficulty === "hard" ? "text-red-400" : "text-slate-400"
+                          }`} />
+                          <p className={`text-sm font-medium ${
+                            formData.difficulty === "hard" ? "text-red-400" : "text-slate-300"
+                          }`}>Hard</p>
+                          <p className="text-xs text-slate-500 mt-1">Application</p>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
                       <Label className="text-slate-300 mb-2 block">
                         Question Type
                       </Label>
@@ -406,6 +637,111 @@ export default function CreateQuizPage() {
                           <SelectItem value="fill_blank">Fill in the Blanks</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Timer Settings */}
+                    <div>
+                      <Label className="text-slate-300 mb-3 block">
+                        Timer Settings
+                      </Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, timerMode: "none" })}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            formData.timerMode === "none"
+                              ? "border-slate-500 bg-slate-500/10"
+                              : "border-slate-700 hover:border-slate-600"
+                          }`}
+                        >
+                          <TimerOff className={`w-6 h-6 mx-auto mb-2 ${
+                            formData.timerMode === "none" ? "text-slate-300" : "text-slate-400"
+                          }`} />
+                          <p className={`text-sm font-medium ${
+                            formData.timerMode === "none" ? "text-slate-300" : "text-slate-400"
+                          }`}>No Timer</p>
+                          <p className="text-xs text-slate-500 mt-1">Relaxed</p>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, timerMode: "quiz", timeLimit: 10 })}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            formData.timerMode === "quiz"
+                              ? "border-blue-500 bg-blue-500/10"
+                              : "border-slate-700 hover:border-slate-600"
+                          }`}
+                        >
+                          <Clock className={`w-6 h-6 mx-auto mb-2 ${
+                            formData.timerMode === "quiz" ? "text-blue-400" : "text-slate-400"
+                          }`} />
+                          <p className={`text-sm font-medium ${
+                            formData.timerMode === "quiz" ? "text-blue-400" : "text-slate-300"
+                          }`}>Per Quiz</p>
+                          <p className="text-xs text-slate-500 mt-1">Total time</p>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, timerMode: "question", timeLimit: 30 })}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            formData.timerMode === "question"
+                              ? "border-orange-500 bg-orange-500/10"
+                              : "border-slate-700 hover:border-slate-600"
+                          }`}
+                        >
+                          <Timer className={`w-6 h-6 mx-auto mb-2 ${
+                            formData.timerMode === "question" ? "text-orange-400" : "text-slate-400"
+                          }`} />
+                          <p className={`text-sm font-medium ${
+                            formData.timerMode === "question" ? "text-orange-400" : "text-slate-300"
+                          }`}>Per Question</p>
+                          <p className="text-xs text-slate-500 mt-1">Time each</p>
+                        </button>
+                      </div>
+
+                      {/* Time Limit Selector */}
+                      {formData.timerMode !== "none" && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-4"
+                        >
+                          <Label className="text-slate-400 text-sm mb-2 block">
+                            {formData.timerMode === "quiz" ? "Total Quiz Time" : "Time Per Question"}
+                          </Label>
+                          <Select
+                            value={formData.timeLimit.toString()}
+                            onValueChange={(value) =>
+                              setFormData({ ...formData, timeLimit: parseInt(value) })
+                            }
+                          >
+                            <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {formData.timerMode === "quiz" ? (
+                                <>
+                                  <SelectItem value="5">5 minutes</SelectItem>
+                                  <SelectItem value="10">10 minutes</SelectItem>
+                                  <SelectItem value="15">15 minutes</SelectItem>
+                                  <SelectItem value="20">20 minutes</SelectItem>
+                                  <SelectItem value="30">30 minutes</SelectItem>
+                                </>
+                              ) : (
+                                <>
+                                  <SelectItem value="15">15 seconds</SelectItem>
+                                  <SelectItem value="30">30 seconds</SelectItem>
+                                  <SelectItem value="45">45 seconds</SelectItem>
+                                  <SelectItem value="60">60 seconds</SelectItem>
+                                  <SelectItem value="90">90 seconds</SelectItem>
+                                </>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
 

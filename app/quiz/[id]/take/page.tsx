@@ -11,6 +11,8 @@ interface Quiz {
   title: string;
   subject: string;
   questions: any[];
+  timerMode?: "none" | "quiz" | "question";
+  timeLimit?: number;
 }
 
 export default function QuizTakePage() {
@@ -102,6 +104,8 @@ export default function QuizTakePage() {
         title: quiz.title,
         subject: quiz.subject,
         questions: quiz.questions,
+        timerMode: quiz.timerMode,
+        timeLimit: quiz.timeLimit,
       }}
       userId={user?.id || ""}
     />
