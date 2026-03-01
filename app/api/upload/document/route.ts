@@ -1,10 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as mammoth from "mammoth";
-
-// Use require() for pdf-parse to avoid webpack bundling issues on Vercel
-// (pdf-parse v2 references test fixtures that webpack can't resolve)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse");
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -57,14 +51,20 @@ export async function POST(request: NextRequest) {
     let pages: number | undefined;
 
     // Parse based on file type
+    // Lazy-load parsers to avoid module-level crashes on Vercel
     switch (fileType) {
       case "pdf":
+        // Dynamic import pdf-parse to avoid Vercel bundling issues
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pdfParseModule = await import("pdf-parse") as any;
+        const pdfParse = pdfParseModule.default || pdfParseModule;
         const pdfData = await pdfParse(buffer);
         extractedText = pdfData.text || "";
         pages = pdfData.numpages;
         break;
 
       case "docx":
+        const mammoth = await import("mammoth");
         const docxResult = await mammoth.extractRawText({ buffer });
         extractedText = docxResult.value || "";
         break;
