@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as pdfParse from "pdf-parse";
 import * as mammoth from "mammoth";
 
-// Get the default export for pdf-parse (handles both ESM and CJS)
-const pdf = (pdfParse as any).default || pdfParse;
+// Use require() for pdf-parse to avoid webpack bundling issues on Vercel
+// (pdf-parse v2 references test fixtures that webpack can't resolve)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse");
 
 // Supported file types
 const SUPPORTED_TYPES = {
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Parse based on file type
     switch (fileType) {
       case "pdf":
-        const pdfData = await pdf(buffer);
+        const pdfData = await pdfParse(buffer);
         extractedText = pdfData.text || "";
         pages = pdfData.numpages;
         break;
