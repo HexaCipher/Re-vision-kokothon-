@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Vercel serverless config — default 10s is too short for 3 sequential YouTube fetches
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 const TRANSCRIPT_CHAR_LIMIT = 50_000;
 
 // Noise tokens auto-generated captions insert — strip them
@@ -31,7 +36,7 @@ async function fetchVideoTitle(videoId: string): Promise<string> {
   try {
     const res = await fetch(
       `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
-      { next: { revalidate: 3600 } }
+      { cache: "no-store" }
     );
     if (!res.ok) return videoId;
     const data = await res.json();
@@ -71,12 +76,20 @@ async function fetchCaptionTracks(
   const pageRes = await fetch(
     `https://www.youtube.com/watch?v=${videoId}`,
     {
+      cache: "no-store",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
       },
     }
   );
+
+  if (!pageRes.ok) {
+    console.error("[fetch-transcript] YouTube page fetch failed:", pageRes.status);
+    throw new Error(`YouTube page request failed: ${pageRes.status}`);
+  }
+
   const html = await pageRes.text();
 
   const apiKeyMatch = html.match(/"INNERTUBE_API_KEY":\s*"([^"]+)"/);
@@ -91,6 +104,7 @@ async function fetchCaptionTracks(
     `https://www.youtube.com/youtubei/v1/player?key=${apiKey}&prettyPrint=false`,
     {
       method: "POST",
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
         "User-Agent":
@@ -101,6 +115,7 @@ async function fetchCaptionTracks(
           client: {
             clientName: "ANDROID",
             clientVersion: "20.10.38",
+            hl: "en",
           },
         },
         videoId,
@@ -141,6 +156,7 @@ async function fetchTranscriptXml(
   track: CaptionTrack
 ): Promise<string[]> {
   const res = await fetch(track.baseUrl, {
+    cache: "no-store",
     headers: {
       "User-Agent":
         "com.google.android.youtube/20.10.38 (Linux; U; Android 14)",
@@ -148,6 +164,7 @@ async function fetchTranscriptXml(
   });
 
   if (!res.ok) {
+    console.error("[fetch-transcript] Transcript XML failed:", res.status);
     throw new Error(`Transcript XML request failed: ${res.status}`);
   }
 
@@ -251,6 +268,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
 
     if (msg === "NO_CAPTIONS") {
       return NextResponse.json(
@@ -277,7 +295,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.error("[fetch-transcript]", msg);
+    // Log full error details for Vercel function logs
+    console.error("[fetch-transcript] Error:", msg);
+    if (stack) console.error("[fetch-transcript] Stack:", stack);
+
     return NextResponse.json(
       {
         error:
