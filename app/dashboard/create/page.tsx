@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Upload, Sparkles, Loader2, Zap, Flame, Trophy, Clock, Timer, TimerOff, X, CheckCircle, FileUp } from "lucide-react";
+import { FileText, Upload, Sparkles, Loader2, Zap, Flame, Trophy, Clock, Timer, TimerOff, X, CheckCircle, FileUp, Youtube, Link2 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ export default function CreateQuizPage() {
   const router = useRouter();
   const { user } = useUser();
   const [step, setStep] = useState(1);
-  const [inputType, setInputType] = useState<"text" | "pdf">("text");
+  const [inputType, setInputType] = useState<"text" | "pdf" | "youtube">("text");
   const [isGenerating, setIsGenerating] = useState(false);
   
   // PDF upload state
@@ -36,6 +36,16 @@ export default function CreateQuizPage() {
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [pdfMetadata, setPdfMetadata] = useState<{ pages?: number; characters: number; fileName: string; fileType?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // YouTube state
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [isFetchingTranscript, setIsFetchingTranscript] = useState(false);
+  const [transcriptMeta, setTranscriptMeta] = useState<{
+    videoId: string;
+    title: string;
+    characters: number;
+    wasTruncated: boolean;
+  } | null>(null);
 
   // Supported file types
   const SUPPORTED_EXTENSIONS = ".pdf,.docx,.txt";
@@ -111,12 +121,46 @@ export default function CreateQuizPage() {
     }
   };
 
+  const handleFetchTranscript = async () => {
+    if (!youtubeUrl.trim()) return;
+    const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)/;
+    if (!ytRegex.test(youtubeUrl.trim())) {
+      toast.error("Please enter a valid YouTube URL");
+      return;
+    }
+    setIsFetchingTranscript(true);
+    setTranscriptMeta(null);
+    setFormData((prev) => ({ ...prev, content: "" }));
+    try {
+      const res = await fetch("/api/fetch-transcript", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: youtubeUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch transcript");
+      setFormData((prev) => ({ ...prev, content: data.transcript }));
+      setTranscriptMeta({ videoId: data.videoId, title: data.title, characters: data.characters, wasTruncated: data.wasTruncated });
+      if (data.wasTruncated) toast.warning("Transcript was truncated to 50,000 characters");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to fetch transcript");
+    } finally {
+      setIsFetchingTranscript(false);
+    }
+  };
+
+  const handleClearYoutube = () => {
+    setYoutubeUrl("");
+    setTranscriptMeta(null);
+    setFormData((prev) => ({ ...prev, content: "" }));
+  };
+
   const handleNext = () => {
     if (step === 1) {
       setStep(2);
     } else if (step === 2) {
       if (!formData.content.trim()) {
-        toast.error(inputType === "pdf" ? "Please upload a document" : "Please enter your notes");
+        toast.error(inputType === "pdf" ? "Please upload a document" : inputType === "youtube" ? "Please fetch a video transcript" : "Please enter your notes");
         return;
       }
       setStep(3);
@@ -161,6 +205,15 @@ export default function CreateQuizPage() {
       const data = await response.json();
       
       if (!response.ok) {
+        if (response.status === 429 && data.code === "RATE_LIMIT") {
+          const retryAfter = data.retryAfter || 60;
+          toast.error(
+            `Rate limit reached. Please wait ${retryAfter}s and try again.`,
+            { duration: Math.min(retryAfter * 1000, 15000) }
+          );
+          setIsGenerating(false);
+          return;
+        }
         throw new Error(data.error || "Failed to generate quiz");
       }
 
@@ -262,7 +315,7 @@ export default function CreateQuizPage() {
                     Choose Input Method
                   </h2>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     <button
                       onClick={() => setInputType("text")}
                       className={`p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl border-2 transition-all text-left ${
@@ -304,6 +357,27 @@ export default function CreateQuizPage() {
                         PDF, DOCX, or TXT files supported
                       </p>
                     </button>
+
+                    <button
+                      onClick={() => setInputType("youtube")}
+                      className={`p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl border-2 transition-all text-left ${
+                        inputType === "youtube"
+                          ? "border-red-500/60 bg-red-500/5"
+                          : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <Youtube
+                        className={`w-6 h-6 sm:w-8 sm:h-8 mb-2 sm:mb-3 ${
+                          inputType === "youtube" ? "text-red-400" : "text-slate-400"
+                        }`}
+                      />
+                      <h3 className="text-base sm:text-lg font-semibold text-white mb-1 sm:mb-2">
+                        YouTube Video
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-400">
+                        Paste a video URL
+                      </p>
+                    </button>
                   </div>
 
                   <Button
@@ -326,7 +400,7 @@ export default function CreateQuizPage() {
               >
                 <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-5 sm:p-6 md:p-8">
                   <h2 className="font-playfair text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">
-                    {inputType === "pdf" ? "Upload Your Document" : "Enter Your Notes"}
+                    {inputType === "pdf" ? "Upload Your Document" : inputType === "youtube" ? "YouTube Video" : "Enter Your Notes"}
                   </h2>
 
                   {inputType === "text" ? (
@@ -349,6 +423,77 @@ export default function CreateQuizPage() {
                           {formData.content.length.toLocaleString()} characters
                         </p>
                       </div>
+                    </div>
+                  ) : inputType === "youtube" ? (
+                    // YouTube Mode
+                    <div className="space-y-3 sm:space-y-4">
+                      {isFetchingTranscript ? (
+                        // Loading state
+                        <div className="border-2 border-red-500/20 rounded-xl sm:rounded-2xl p-8 sm:p-10 text-center bg-red-500/5">
+                          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-red-400 animate-spin" />
+                          <p className="text-base sm:text-lg font-medium text-white mb-1">Fetching transcript...</p>
+                          <p className="text-xs sm:text-sm text-slate-400">Extracting captions from the video</p>
+                        </div>
+                      ) : transcriptMeta ? (
+                        // Success state
+                        <div className="border-2 border-emerald-500/30 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 bg-emerald-500/5 space-y-3 sm:space-y-4">
+                          <div className="flex items-start gap-3 sm:gap-4">
+                            <img
+                              src={`https://img.youtube.com/vi/${transcriptMeta.videoId}/hqdefault.jpg`}
+                              alt={transcriptMeta.title}
+                              className="w-20 sm:w-28 rounded-lg object-cover flex-shrink-0 aspect-video"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-medium text-white text-sm sm:text-base line-clamp-2">{transcriptMeta.title}</p>
+                                  <p className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                                    <Badge className="bg-red-500/15 text-red-400 border-red-500/25 text-xs">YouTube</Badge>
+                                    <span>{transcriptMeta.characters.toLocaleString()} chars</span>
+                                    {transcriptMeta.wasTruncated && <span className="text-amber-400">· truncated to 50k</span>}
+                                  </p>
+                                </div>
+                                <button onClick={handleClearYoutube} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors flex-shrink-0">
+                                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-slate-400 text-xs sm:text-sm">Transcript Preview</Label>
+                            <div className="mt-2 p-3 sm:p-4 bg-white/[0.02] rounded-lg sm:rounded-xl max-h-[150px] sm:max-h-[200px] overflow-y-auto border border-white/5">
+                              <p className="text-xs sm:text-sm text-slate-300 whitespace-pre-wrap">
+                                {formData.content.slice(0, 800)}{formData.content.length > 800 && "..."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // Idle state — URL input
+                        <div className="space-y-3 sm:space-y-4">
+                          <Label className="text-slate-300 font-medium text-sm sm:text-base">YouTube video URL</Label>
+                          <div className="flex gap-2 sm:gap-3">
+                            <div className="relative flex-1">
+                              <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-400 pointer-events-none" />
+                              <Input
+                                value={youtubeUrl}
+                                onChange={(e) => setYoutubeUrl(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleFetchTranscript()}
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                className="pl-10 bg-white/[0.02] border-white/10 text-white placeholder:text-slate-500 focus:border-white/30 h-11 sm:h-12 rounded-xl text-sm sm:text-base"
+                              />
+                            </div>
+                            <Button
+                              onClick={handleFetchTranscript}
+                              disabled={!youtubeUrl.trim()}
+                              className="bg-white text-slate-950 hover:bg-slate-100 h-11 sm:h-12 px-4 sm:px-6 rounded-xl font-semibold text-sm sm:text-base flex-shrink-0"
+                            >
+                              Fetch
+                            </Button>
+                          </div>
+                          <p className="text-xs text-slate-500">Works with any public YouTube video that has captions or subtitles</p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     // Document Upload Mode
@@ -457,16 +602,16 @@ export default function CreateQuizPage() {
 
                   <div className="flex gap-3 sm:gap-4 mt-6 sm:mt-8">
                     <Button
-                      onClick={() => setStep(1)}
+                      onClick={() => { handleClearYoutube(); setStep(1); }}
                       variant="outline"
                       className="flex-1 h-12 sm:h-14 rounded-xl font-semibold border-white/10 bg-transparent text-white hover:bg-white/5 text-sm sm:text-base"
-                      disabled={isUploadingPdf}
+                      disabled={isUploadingPdf || isFetchingTranscript}
                     >
                       Back
                     </Button>
                     <Button
                       onClick={handleNext}
-                      disabled={isUploadingPdf || !formData.content.trim()}
+                      disabled={isUploadingPdf || isFetchingTranscript || !formData.content.trim()}
                       className="flex-1 bg-white text-slate-950 hover:bg-slate-100 h-12 sm:h-14 rounded-xl font-semibold text-sm sm:text-base disabled:opacity-50"
                     >
                       Continue

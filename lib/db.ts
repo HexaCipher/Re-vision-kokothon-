@@ -61,7 +61,7 @@ export async function createQuiz(data: {
   userId: string;
   title: string;
   subject: string;
-  sourceType: 'text' | 'pdf';
+  sourceType: 'text' | 'pdf' | 'youtube';
   sourceContent: string;
   questions: Question[];
   difficulty?: 'easy' | 'medium' | 'hard';

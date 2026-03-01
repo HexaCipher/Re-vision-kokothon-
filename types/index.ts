@@ -15,7 +15,7 @@ export interface Quiz {
   userId: string;
   title: string;
   subject: string;
-  sourceType: 'text' | 'pdf';
+  sourceType: 'text' | 'pdf' | 'youtube';
   sourceContent: string;
   questions: Question[];
   difficulty?: 'easy' | 'medium' | 'hard';
@@ -37,7 +37,7 @@ export interface Attempt {
 export interface QuizFormData {
   title: string;
   subject: string;
-  inputType: 'text' | 'pdf';
+  inputType: 'text' | 'pdf' | 'youtube';
   content: string;
   questionCount: number;
   questionTypes: QuestionType[];
