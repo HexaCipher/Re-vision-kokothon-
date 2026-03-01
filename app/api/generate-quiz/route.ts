@@ -6,6 +6,7 @@ import { Question, QuestionType } from "@/types";
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const maxDuration = 60; // Allow up to 60s for Gemini to respond (Vercel default is 10s)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -113,7 +114,15 @@ export async function POST(request: NextRequest) {
 
     console.log("Calling Gemini API...");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        // Disable thinking mode — faster responses, no <think> preambles,
+        // avoids Vercel's 10s timeout on long notes
+        // @ts-expect-error thinkingConfig is not yet in the TS types but is supported at runtime
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
 
     const result = await model.generateContent(prompt);
     const rawText = result.response.text();
