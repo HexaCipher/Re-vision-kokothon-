@@ -111,13 +111,8 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
 
   const handleAnswerChange = (value: string) => {
     setAnswers({ ...answers, [currentQuestion.id]: value });
-    // Show explanation immediately if the chosen answer is wrong
-    const isWrong = value.toLowerCase().trim() !== currentQuestion.correctAnswer.toLowerCase().trim();
-    if (isWrong && currentQuestion.explanation) {
-      setShowExplanation(true);
-    } else {
-      setShowExplanation(false);
-    }
+    // Reset explanation when the user changes their selection
+    setShowExplanation(false);
   };
 
   const handleForceSubmit = useCallback(async () => {
@@ -210,6 +205,17 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
       toast.error("Please select an answer before continuing");
       return;
     }
+
+    const isWrong =
+      answers[currentQuestion.id].toLowerCase().trim() !==
+      currentQuestion.correctAnswer.toLowerCase().trim();
+
+    // First time hitting Next on a wrong answer: show the hint, don't advance yet
+    if (isWrong && currentQuestion.explanation && !showExplanation) {
+      setShowExplanation(true);
+      return;
+    }
+
     if (isLastQuestion) {
       handleForceSubmit();
     } else {
@@ -443,7 +449,7 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
                             <Lightbulb className="w-4 h-4 text-amber-400" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-semibold text-amber-400 mb-1">Hint</p>
+                            <p className="text-xs sm:text-sm font-semibold text-amber-400 mb-1">Not quite — here&apos;s a hint</p>
                             <p className="text-sm sm:text-base text-slate-300 leading-relaxed">{currentQuestion.explanation}</p>
                           </div>
                           <button
@@ -476,10 +482,10 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
                     {isSubmitting ? (
                       "Submitting..."
                     ) : isLastQuestion ? (
-                      "Submit Quiz"
+                      showExplanation ? "Submit Anyway" : "Submit Quiz"
                     ) : (
                       <>
-                        Next
+                        {showExplanation ? "Continue Anyway" : "Next"}
                         <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                       </>
                     )}

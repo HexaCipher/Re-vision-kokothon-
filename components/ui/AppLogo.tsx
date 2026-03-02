@@ -1,92 +1,59 @@
 /**
  * AppLogo — Re-vision brand mark
  *
- * Icon: open book with a spark above it, symbolising the transformation
- *       of study notes into active insight (the core purpose of the app).
+ * Icon: open book with a spark/lightning bolt — clean, sharp, dark-background style.
+ *       Rendered on a deep navy tile with cyan accent strokes.
  *
- * Wordmark: Playfair Display serif — academic, elegant, typographic.
- *           "Re-" in white, "vision" in slightly dimmer white so the
- *           hyphen reads as a meaningful word-break (re-seeing your notes).
+ * Wordmark: Space Grotesk Bold
+ *   "Re" in electric cyan #00E5FF
+ *   "-"  glowing separator
+ *   "vision" in clean white #F8FAFC
  */
 
 interface AppLogoProps {
-  /** Icon container size class — defaults to "w-9 h-9 sm:w-10 sm:h-10" */
   size?: "sm" | "md" | "lg";
-  /** Show/hide the wordmark next to the icon */
   showName?: boolean;
-  /** Extra className on the wrapper */
   className?: string;
 }
 
 const SIZES = {
-  sm: {
-    box: "w-8 h-8",
-    svg: 16,
-    text: "text-base",
-  },
-  md: {
-    box: "w-9 h-9 sm:w-10 sm:h-10",
-    svg: 18,
-    text: "text-lg sm:text-xl",
-  },
-  lg: {
-    box: "w-14 h-14",
-    svg: 26,
-    text: "text-2xl sm:text-3xl",
-  },
+  sm: { box: "w-8 h-8",            svg: 32, text: "text-base",        gap: "gap-2"         },
+  md: { box: "w-9 h-9 sm:w-10 sm:h-10", svg: 40, text: "text-lg sm:text-xl", gap: "gap-2 sm:gap-2.5" },
+  lg: { box: "w-14 h-14",          svg: 56, text: "text-2xl sm:text-3xl", gap: "gap-3"      },
 };
 
-export function AppLogo({
-  size = "md",
-  showName = true,
-  className = "",
-}: AppLogoProps) {
+export function AppLogo({ size = "md", showName = true, className = "" }: AppLogoProps) {
   const s = SIZES[size];
-
   return (
-    <span className={`flex items-center gap-2 sm:gap-2.5 ${className}`}>
-      {/* Icon box */}
-      <span
-        className={`${s.box} rounded-xl bg-white flex items-center justify-center flex-shrink-0 transition-colors group-hover:bg-slate-100`}
-      >
+    <span className={`flex items-center ${s.gap} ${className}`}>
+      <span className={`${s.box} flex items-center justify-center flex-shrink-0`}>
         <BookSparkIcon size={s.svg} />
       </span>
-
-      {/* Wordmark */}
       {showName && (
         <span
           className={`${s.text} font-bold tracking-tight leading-none select-none`}
-          style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
+          style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', 'Inter', system-ui, sans-serif" }}
         >
-          <span className="text-white">Re</span>
-          <span className="text-white/60">-</span>
-          <span className="text-white">vision</span>
+          <span style={{ color: "#00E5FF" }}>Re</span>
+          <span style={{ color: "#00E5FF", opacity: 0.6, fontWeight: 400 }}>-</span>
+          <span style={{ color: "#F8FAFC" }}>vision</span>
         </span>
       )}
     </span>
   );
 }
 
-/**
- * Standalone icon-only variant — for places where no name is needed
- * (quiz-taking nav, 404 page, etc.)
- */
-export function AppIcon({
-  size = "md",
-  className = "",
-}: Omit<AppLogoProps, "showName">) {
+export function AppIcon({ size = "md", className = "" }: Omit<AppLogoProps, "showName">) {
   const s = SIZES[size];
   return (
-    <span
-      className={`${s.box} rounded-xl bg-white flex items-center justify-center flex-shrink-0 transition-colors group-hover:bg-slate-100 ${className}`}
-    >
+    <span className={`${s.box} flex items-center justify-center flex-shrink-0 ${className}`}>
       <BookSparkIcon size={s.svg} />
     </span>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* SVG: open book with a small spark/flash above the spine             */
+/* Open book with a lightning spark — crisp on dark backgrounds        */
 /* ------------------------------------------------------------------ */
 
 function BookSparkIcon({ size }: { size: number }) {
@@ -94,42 +61,95 @@ function BookSparkIcon({ size }: { size: number }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
+      {/* Dark navy background tile */}
+      <rect width="48" height="48" rx="11" fill="#0A0F1E" />
+      <rect x="0.5" y="0.5" width="47" height="47" rx="10.5" stroke="#00E5FF" strokeOpacity="0.15" />
+
       {/* Left page of open book */}
       <path
-        d="M12 19C12 19 5 16.5 5 10V6.5C7.5 6.5 10 7.5 12 9"
-        stroke="#0a0a0f"
-        strokeWidth="1.8"
+        d="M24 34C24 34 13 30.5 13 22V15C17 15 21 16.5 24 19"
+        stroke="#00E5FF"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       {/* Right page of open book */}
       <path
-        d="M12 19C12 19 19 16.5 19 10V6.5C16.5 6.5 14 7.5 12 9"
-        stroke="#0a0a0f"
-        strokeWidth="1.8"
+        d="M24 34C24 34 35 30.5 35 22V15C31 15 27 16.5 24 19"
+        stroke="#F8FAFC"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity="0.85"
+      />
+      {/* Spine */}
+      <line
+        x1="24" y1="19" x2="24" y2="34"
+        stroke="#00E5FF"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeOpacity="0.7"
+      />
+      {/* Lightning bolt spark above book */}
+      <path
+        d="M26 7L21.5 13.5H25L20.5 20"
+        stroke="#00E5FF"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Spine / centre line */}
-      <line
-        x1="12"
-        y1="9"
-        x2="12"
-        y2="19"
-        stroke="#0a0a0f"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-      {/* Spark / lightning bolt above the book — represents AI insight */}
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Square icon for favicon / OG image export                           */
+/* ------------------------------------------------------------------ */
+
+export function RevisionSquareIcon({ size = 48 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <rect width="48" height="48" rx="11" fill="#0A0F1E" />
+      <rect x="0.5" y="0.5" width="47" height="47" rx="10.5" stroke="#00E5FF" strokeOpacity="0.15" />
+
       <path
-        d="M13.5 2L11 5.5H13L10.5 9"
-        stroke="#0a0a0f"
-        strokeWidth="1.6"
+        d="M24 34C24 34 13 30.5 13 22V15C17 15 21 16.5 24 19"
+        stroke="#00E5FF"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M24 34C24 34 35 30.5 35 22V15C31 15 27 16.5 24 19"
+        stroke="#F8FAFC"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity="0.85"
+      />
+      <line
+        x1="24" y1="19" x2="24" y2="34"
+        stroke="#00E5FF"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeOpacity="0.7"
+      />
+      <path
+        d="M26 7L21.5 13.5H25L20.5 20"
+        stroke="#00E5FF"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

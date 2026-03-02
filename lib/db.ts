@@ -164,12 +164,12 @@ export async function getQuizzesByUser(userId: string): Promise<DbQuiz[]> {
   }
 }
 
-export async function getQuizById(quizId: string): Promise<DbQuiz> {
+export async function getQuizById(quizId: string): Promise<DbQuiz | null> {
   const docRef = doc(db, 'quizzes', quizId);
   const snapshot = await getDoc(docRef);
 
   if (!snapshot.exists()) {
-    throw new Error('Quiz not found');
+    return null;
   }
 
   const data = snapshot.data();
@@ -222,25 +222,55 @@ export async function createAttempt(data: {
 }
 
 export async function getAttemptsByQuiz(quizId: string): Promise<DbAttempt[]> {
-  const q = query(
-    attemptsCollection,
-    where('quiz_id', '==', quizId),
-    orderBy('completed_at', 'desc')
-  );
+  try {
+    const q = query(
+      attemptsCollection,
+      where('quiz_id', '==', quizId),
+      orderBy('completed_at', 'desc')
+    );
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      quiz_id: data.quiz_id,
-      user_id: data.user_id,
-      score: data.score,
-      total_questions: data.total_questions,
-      answers: data.answers,
-      completed_at: data.completed_at?.toDate?.()?.toISOString() || data.completed_at,
-    };
-  });
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        quiz_id: data.quiz_id,
+        user_id: data.user_id,
+        score: data.score,
+        total_questions: data.total_questions,
+        answers: data.answers,
+        completed_at: data.completed_at?.toDate?.()?.toISOString() || data.completed_at,
+      };
+    });
+  } catch (error: unknown) {
+    // Composite index may be missing — fall back to simple query + client-side sort
+    console.warn('Composite index missing for attempts, falling back to client-side sort:', error);
+
+    const q = query(
+      attemptsCollection,
+      where('quiz_id', '==', quizId)
+    );
+
+    const snapshot = await getDocs(q);
+    const attempts = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        quiz_id: data.quiz_id,
+        user_id: data.user_id,
+        score: data.score,
+        total_questions: data.total_questions,
+        answers: data.answers,
+        completed_at: data.completed_at?.toDate?.()?.toISOString() || data.completed_at,
+      };
+    });
+
+    return attempts.sort((a, b) => {
+      const dateA = new Date(a.completed_at || 0).getTime();
+      const dateB = new Date(b.completed_at || 0).getTime();
+      return dateB - dateA;
+    });
+  }
 }
 
 export async function getAttemptsByUser(userId: string): Promise<DbAttempt[]> {

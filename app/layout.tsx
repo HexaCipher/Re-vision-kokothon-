@@ -1,9 +1,12 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter, Playfair_Display } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono, Inter, Playfair_Display, Space_Grotesk } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { ServiceWorkerRegistrar } from "@/components/ui/ServiceWorkerRegistrar";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { InstallBanner } from "@/components/ui/InstallBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,14 +30,26 @@ const playfair = Playfair_Display({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "Re-vision - Transform Your Notes Into Interactive Quizzes",
   description:
     "Upload your study notes and get AI-generated quizzes instantly. Master any subject through active recall.",
   metadataBase: new URL("https://re-vision-eosin.vercel.app"),
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: "/favicon.svg",
     apple: "/apple-touch-icon.svg",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Re-vision",
   },
   openGraph: {
     title: "Re-vision - Transform Your Notes Into Interactive Quizzes",
@@ -52,8 +67,16 @@ export const metadata: Metadata = {
     images: ["/og-image.svg"],
   },
   other: {
-    "theme-color": "#0a0a0f",
+    "mobile-web-app-capable": "yes",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0f",
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -124,15 +147,18 @@ export default function RootLayout({
     >
       <html lang="en" className="dark" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${playfair.variable} antialiased text-slate-100 min-h-screen relative`}
+          className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${playfair.variable} ${spaceGrotesk.variable} antialiased text-slate-100 min-h-screen relative`}
           style={{
             background: "linear-gradient(135deg, #0a0a0f 0%, #0f1117 40%, #111827 70%, #0c1020 100%)",
           }}
         >
+          <InstallBanner />
+          <OfflineBanner />
           <div className="relative z-10">
             {children}
           </div>
           <Toaster />
+          <ServiceWorkerRegistrar />
         </body>
       </html>
     </ClerkProvider>
