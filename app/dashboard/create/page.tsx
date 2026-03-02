@@ -123,7 +123,7 @@ export default function CreateQuizPage() {
 
   const handleFetchTranscript = async () => {
     if (!youtubeUrl.trim()) return;
-    const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)/;
+    const ytRegex = /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/|live\/|v\/)|youtu\.be\/)/;
     if (!ytRegex.test(youtubeUrl.trim())) {
       toast.error("Please enter a valid YouTube URL");
       return;

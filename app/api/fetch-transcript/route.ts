@@ -68,6 +68,10 @@ function extractVideoId(url: string): string | null {
       return u.pathname.slice(1).split("?")[0] || null;
     if (u.pathname.startsWith("/shorts/"))
       return u.pathname.split("/shorts/")[1].split("?")[0] || null;
+    if (u.pathname.startsWith("/live/"))
+      return u.pathname.split("/live/")[1].split("?")[0] || null;
+    if (u.pathname.startsWith("/v/"))
+      return u.pathname.split("/v/")[1].split("?")[0] || null;
     const v = u.searchParams.get("v");
     if (v) return v;
     if (u.pathname.startsWith("/embed/"))
