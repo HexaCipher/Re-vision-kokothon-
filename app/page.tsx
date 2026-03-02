@@ -355,6 +355,17 @@ export default function LandingPage() {
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.65], [1, 0]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen relative overflow-x-hidden" style={{ fontFamily: "var(--font-inter), sans-serif" }} />
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-x-hidden" style={{ fontFamily: "var(--font-inter), sans-serif" }}>

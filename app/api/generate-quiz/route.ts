@@ -356,7 +356,7 @@ export async function POST(request: NextRequest) {
         title: String(title),
         subject: String(subject),
         sourceType: resolvedSourceType,
-        sourceContent: String(content),
+        sourceContent: trimmedContent,
         questions,
         difficulty: (difficultyLevel as "easy" | "medium" | "hard") || "medium",
         timerMode: (timerMode as "none" | "quiz" | "question") || "none",
@@ -368,9 +368,15 @@ export async function POST(request: NextRequest) {
         questions,
         provider: usedProvider,
       });
-    } catch {
+    } catch (dbError: unknown) {
+      console.error("[generate-quiz] Firestore save failed:", dbError);
+      const dbMsg =
+        dbError instanceof Error ? dbError.message : String(dbError);
       return NextResponse.json(
-        { error: "Failed to save quiz to database. Please try again." },
+        {
+          error: "Failed to save quiz to database. Please try again.",
+          detail: dbMsg,
+        },
         { status: 500 }
       );
     }

@@ -30,7 +30,7 @@ interface DbQuiz {
   user_id: string;
   title: string;
   subject: string;
-  source_type: 'text' | 'pdf';
+  source_type: 'text' | 'pdf' | 'youtube';
   source_content: string;
   questions: Question[];
   difficulty?: 'easy' | 'medium' | 'hard';
