@@ -1,12 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <rect width="512" height="512" rx="128" fill="#0a0a0f"/>
+  <!-- Dark background tile -->
+  <rect width="512" height="512" rx="128" fill="#0A0F1E"/>
   <rect x="8" y="8" width="496" height="496" rx="120" stroke="white" stroke-opacity="0.1" stroke-width="8"/>
-  <!-- Open book left page -->
-  <path d="M256 376C256 376 136 332 136 208V108C184 108 232 124 256 152" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Right page -->
-  <path d="M256 376C256 376 376 332 376 208V108C328 108 280 124 256 152" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Spine -->
-  <line x1="256" y1="152" x2="256" y2="376" stroke="white" stroke-width="24" stroke-linecap="round"/>
-  <!-- Spark / lightning bolt -->
-  <path d="M280 48L236 108H272L228 168" stroke="white" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Bold white "R" letter -->
+  <text x="256" y="380" text-anchor="middle" font-family="'Space Grotesk', 'Inter', system-ui, sans-serif" font-weight="700" font-size="340" fill="#FFFFFF">R</text>
 </svg>

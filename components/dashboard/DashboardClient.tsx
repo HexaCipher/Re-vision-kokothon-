@@ -122,10 +122,22 @@ export default function DashboardClient({
         <FadeIn className="mb-8 sm:mb-10 md:mb-12">
           <p className="text-sm sm:text-base text-indigo-400 font-semibold tracking-widest uppercase mb-3 sm:mb-4">Dashboard</p>
           <h1
-            className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2 sm:mb-3"
+            className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2 sm:mb-3 flex items-center gap-3"
             style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
           >
             Welcome back, {user.name.split(' ')[0]}
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 72 72"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 inline-block"
+            >
+              <path fill="#FCEA2B" d="M16.5 33.5c-.5-3.5 1-8 5-8 3 0 6 4.5 6 4.5s1-10 6-10c4.5 0 5 6 5 10 0 0 1.5-7 6-7 4 0 5 5.5 5 9.5 0 0 2-5 5.5-5 4 0 5 5 5 8 0 4-1 12-8 19s-14 8-20 8-14-4-18-12-3.5-13.5 2.5-17"/>
+              <path fill="#F1B31C" d="M22.5 63.5c-4.5-3-8-7.5-10-12-.5 2.5 0 5 1.5 7.5 3.5 6 10.5 10 16.5 11-3-1.5-5.5-4-8-6.5z"/>
+              <path fill="none" stroke="#000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16.5 33.5c-.5-3.5 1-8 5-8 3 0 6 4.5 6 4.5s1-10 6-10c4.5 0 5 6 5 10 0 0 1.5-7 6-7 4 0 5 5.5 5 9.5 0 0 2-5 5.5-5 4 0 5 5 5 8 0 4-1 12-8 19s-14 8-20 8-14-4-18-12-3.5-13.5 2.5-17"/>
+              <path fill="none" stroke="#000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M27.5 30v15M38.5 30v15M49.5 32.5V45"/>
+            </svg>
           </h1>
           <p className="text-base sm:text-lg text-slate-400">
             Ready to master your subjects?

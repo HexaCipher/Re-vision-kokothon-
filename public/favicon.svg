@@ -1,13 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
   <!-- Dark background tile -->
-  <rect width="32" height="32" rx="8" fill="#0a0a0f"/>
-  <rect x="1" y="1" width="30" height="30" rx="7" stroke="white" stroke-opacity="0.1" stroke-width="1"/>
-  <!-- White icon centred in a white box area — open book left page -->
-  <path d="M16 23.5C16 23.5 8.5 20.5 8.5 13V8.5C11.5 8.5 14.5 9.5 16 11.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Right page -->
-  <path d="M16 23.5C16 23.5 23.5 20.5 23.5 13V8.5C20.5 8.5 17.5 9.5 16 11.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Spine -->
-  <line x1="16" y1="11.5" x2="16" y2="23.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-  <!-- Spark -->
-  <path d="M17.5 4L14.5 8H17L14 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="32" height="32" rx="8" fill="#0A0F1E"/>
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7.5" stroke="white" stroke-opacity="0.1"/>
+  <!-- Bold white "R" letter -->
+  <text x="16" y="24" text-anchor="middle" font-family="'Space Grotesk', 'Inter', system-ui, sans-serif" font-weight="700" font-size="22" fill="#FFFFFF">R</text>
 </svg>
