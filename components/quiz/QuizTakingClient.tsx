@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Clock, ChevronRight, ChevronLeft, AlertTriangle } from "lucide-react";
+import { Clock, ChevronRight, ChevronLeft, AlertTriangle, Lightbulb, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Question } from "@/types";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
   
   const timerMode = quiz.timerMode || "none";
   const timeLimit = quiz.timeLimit || 10;
@@ -110,6 +111,13 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
 
   const handleAnswerChange = (value: string) => {
     setAnswers({ ...answers, [currentQuestion.id]: value });
+    // Show explanation immediately if the chosen answer is wrong
+    const isWrong = value.toLowerCase().trim() !== currentQuestion.correctAnswer.toLowerCase().trim();
+    if (isWrong && currentQuestion.explanation) {
+      setShowExplanation(true);
+    } else {
+      setShowExplanation(false);
+    }
   };
 
   const handleForceSubmit = useCallback(async () => {
@@ -205,12 +213,14 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
     if (isLastQuestion) {
       handleForceSubmit();
     } else {
+      setShowExplanation(false);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
+      setShowExplanation(false);
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
@@ -416,6 +426,38 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
                   </div>
                 </div>
 
+                {/* Inline explanation on wrong answer */}
+                <AnimatePresence>
+                  {showExplanation && currentQuestion.explanation && (
+                    <motion.div
+                      key="explanation"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mx-4 sm:mx-8 mb-4 sm:mb-6 p-4 sm:p-5 rounded-xl sm:rounded-2xl border border-amber-500/25 bg-amber-500/8">
+                        <div className="flex items-start gap-3">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-amber-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Lightbulb className="w-4 h-4 text-amber-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs sm:text-sm font-semibold text-amber-400 mb-1">Hint</p>
+                            <p className="text-sm sm:text-base text-slate-300 leading-relaxed">{currentQuestion.explanation}</p>
+                          </div>
+                          <button
+                            onClick={() => setShowExplanation(false)}
+                            className="p-1 hover:bg-white/5 rounded-lg transition-colors flex-shrink-0"
+                          >
+                            <X className="w-4 h-4 text-slate-500" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <div className="px-4 sm:px-8 py-4 sm:py-6 border-t border-white/5 flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <Button
                     onClick={handlePrevious}
@@ -449,7 +491,7 @@ export default function QuizTakingClient({ quiz, userId }: QuizTakingClientProps
                 {quiz.questions.map((_, index) => (
                   <button
                     key={index}
-                    onClick={() => setCurrentQuestionIndex(index)}
+                    onClick={() => { setShowExplanation(false); setCurrentQuestionIndex(index); }}
                     className={`w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center text-xs sm:text-sm font-semibold transition-all duration-200 ${
                       index === currentQuestionIndex
                         ? "bg-white text-slate-950"

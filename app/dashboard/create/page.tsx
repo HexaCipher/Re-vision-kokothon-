@@ -767,9 +767,14 @@ export default function CreateQuizPage() {
                         Question Type
                       </Label>
                       <Select
-                        value={formData.questionTypes[0]}
+                        value={formData.questionTypes.length > 1 ? "mixed" : formData.questionTypes[0]}
                         onValueChange={(value) =>
-                          setFormData({ ...formData, questionTypes: [value] })
+                          setFormData({
+                            ...formData,
+                            questionTypes: value === "mixed"
+                              ? ["mcq", "true_false", "fill_blank"]
+                              : [value],
+                          })
                         }
                       >
                         <SelectTrigger className="bg-white/[0.02] border-white/10 text-white h-11 sm:h-12 rounded-xl text-sm sm:text-base">
@@ -777,8 +782,9 @@ export default function CreateQuizPage() {
                         </SelectTrigger>
                         <SelectContent className="bg-slate-900/95 border-white/10 backdrop-blur-xl">
                           <SelectItem value="mcq">Multiple Choice</SelectItem>
-                          <SelectItem value="true_false">True/False</SelectItem>
+                          <SelectItem value="true_false">True / False</SelectItem>
                           <SelectItem value="fill_blank">Fill in the Blanks</SelectItem>
+                          <SelectItem value="mixed">✦ Mixed (all types)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

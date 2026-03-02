@@ -122,26 +122,47 @@ function parseAndNormalise(
     throw new Error("AI did not return any questions. Please try again.");
   }
 
-  const questions: Question[] = parsed.map((q: any, index: number) => {
-    const options: string[] | undefined =
-      Array.isArray(q.options) && q.options.length > 0
-        ? q.options.map((o: unknown) => String(o).trim())
-        : undefined;
+  const validTypes: QuestionType[] = ["mcq", "true_false", "fill_blank"];
 
-    return {
+  const questions: Question[] = parsed.map((q: any, index: number) => {
+    // For mixed mode, each question carries its own `type` field.
+    // Fall back to the requested questionType for single-type quizzes.
+    let resolvedType: QuestionType;
+    if (questionType === "mixed" && validTypes.includes(q.type as QuestionType)) {
+      resolvedType = q.type as QuestionType;
+    } else {
+      resolvedType = (questionType === "mixed" ? "mcq" : questionType) as QuestionType;
+    }
+
+    // Normalise options: accept standard array OR Groq's A/B/C/D key format
+    let options: string[] | undefined;
+    if (Array.isArray(q.options) && q.options.length > 0) {
+      options = q.options.map((o: unknown) => String(o).trim());
+    } else if (q.A && q.B && q.C && q.D) {
+      // Groq sometimes returns { A: "...", B: "...", C: "...", D: "..." }
+      options = [String(q.A).trim(), String(q.B).trim(), String(q.C).trim(), String(q.D).trim()];
+      // Map letter answer to full text if needed
+      if (!q.correctAnswer && q.answer) q.correctAnswer = q.answer;
+    }
+
+    const explanation = q.explanation ? String(q.explanation).trim() : null;
+    const correctAnswer = resolveCorrectAnswer(
+      String(q.correctAnswer ?? ""),
+      options
+    );
+
+    // Build question object without any undefined values (Firestore rejects undefined)
+    const questionObj: Record<string, unknown> = {
       id: `q${index + 1}`,
       question: String(q.question ?? "").trim(),
-      type: questionType as QuestionType,
-      options,
-      correctAnswer: resolveCorrectAnswer(
-        String(q.correctAnswer ?? ""),
-        options
-      ),
-      explanation: q.explanation
-        ? String(q.explanation).trim()
-        : undefined,
+      type: resolvedType,
+      correctAnswer,
       orderNumber: index + 1,
     };
+    if (options !== undefined) questionObj.options = options;
+    if (explanation) questionObj.explanation = explanation;
+
+    return questionObj as unknown as Question;
   });
 
   for (const q of questions) {
@@ -167,11 +188,9 @@ async function generateWithGemini(prompt: string): Promise<string> {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash",
     generationConfig: {
       responseMimeType: "application/json",
-      // @ts-expect-error thinkingConfig not yet in TS types but supported at runtime
-      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
@@ -195,7 +214,7 @@ async function generateWithGroq(prompt: string): Promise<string> {
       {
         role: "system",
         content:
-          "You are an expert quiz generator. Return ONLY a valid JSON array of question objects. No markdown, no extra text.",
+          'You are an expert quiz generator. Return ONLY valid JSON in the format: {"questions": [...]}. Every question MUST have "question" and "correctAnswer" fields. For mixed quizzes every question MUST also have a "type" field set to exactly "mcq", "true_false", or "fill_blank". No markdown, no extra text.',
       },
       { role: "user", content: prompt },
     ],
@@ -254,7 +273,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const questionType = (questionTypes as string[])[0] || "mcq";
+    const isMixed = Array.isArray(questionTypes) && questionTypes.length > 1;
+    const questionType = isMixed ? "mixed" : ((questionTypes as string[])[0] || "mcq");
     const difficultyLevel = difficulty || "medium";
 
     // Truncate content for faster LLM processing
@@ -263,11 +283,13 @@ export async function POST(request: NextRequest) {
         ? content.slice(0, MAX_CONTENT_CHARS)
         : content;
 
+    const resolvedSourceType = (sourceType as string) || "text";
     const prompt = generatePrompt(
       trimmedContent,
       Number(questionCount),
       questionType,
-      difficultyLevel
+      difficultyLevel,
+      resolvedSourceType
     );
 
     // --- Try Gemini first, fall back to Groq on rate limit ---
@@ -395,7 +417,8 @@ function generatePrompt(
   content: string,
   questionCount: number,
   questionType: string,
-  difficulty: string
+  difficulty: string,
+  sourceType: string = "text"
 ): string {
   const difficultyInstructions: Record<string, string> = {
     easy: `DIFFICULTY: EASY
@@ -415,8 +438,33 @@ function generatePrompt(
   const difficultyPrompt =
     difficultyInstructions[difficulty] ?? difficultyInstructions.medium;
 
-  const basePrompt = `You are an expert quiz generator. Analyse the following study notes and generate exactly ${questionCount} high-quality questions that test understanding of the key concepts.
+  // YouTube-specific filtering instructions
+  const youtubeFilterInstructions =
+    sourceType === "youtube"
+      ? `
+CRITICAL — YOUTUBE TRANSCRIPT FILTERING:
+This content is a raw YouTube video transcript. It likely contains non-educational filler that you MUST IGNORE when creating questions. Do NOT generate questions about:
+- Greetings, introductions, or sign-offs ("Hey guys", "Welcome back", "Thanks for watching")
+- Channel promotions, subscriber requests, or sponsor mentions ("Hit that like button", "Subscribe", "This video is sponsored by")
+- Personal anecdotes, jokes, or off-topic tangents from the presenter
+- Filler words and verbal tics ("um", "uh", "so", "like", "you know", "basically")
+- Timestamps, chapter markers, or navigation cues ("In this section", "Let's jump to")
+- Comments about the video production itself ("As you can see on screen", "I'll put a link below")
 
+ONLY generate questions from the CORE EDUCATIONAL CONTENT:
+- Definitions, concepts, and terminology
+- Facts, data, statistics, and figures
+- Formulas, equations, and procedures
+- Examples, case studies, and explanations
+- Cause-and-effect relationships
+- Comparisons and contrasts between concepts
+
+If the transcript is mostly non-educational (e.g., a vlog or entertainment video), generate questions ONLY from whatever educational substance exists — even if sparse.
+`
+      : "";
+
+  const basePrompt = `You are an expert quiz generator. Analyse the following study notes and generate exactly ${questionCount} high-quality questions that test understanding of the key concepts.
+${youtubeFilterInstructions}
 ${difficultyPrompt}
 
 Study Notes:
@@ -463,6 +511,44 @@ The "correctAnswer" field should be the word or short phrase that fills the blan
 
 [
   {
+    "question": "The ___ is responsible for...",
+    "correctAnswer": "mitochondria",
+    "explanation": "The correct answer is..."
+  }
+]`;
+  }
+
+  if (questionType === "mixed") {
+    const mcqCount = Math.ceil(questionCount / 3);
+    const tfCount = Math.floor(questionCount / 3);
+    const fbCount = questionCount - mcqCount - tfCount;
+    return `${basePrompt}
+
+Generate exactly ${questionCount} questions in MIXED format:
+- ${mcqCount} multiple-choice questions (type: "mcq") — each with exactly 4 options
+- ${tfCount} true/false questions (type: "true_false") — correctAnswer must be exactly "True" or "False"
+- ${fbCount} fill-in-the-blank questions (type: "fill_blank") — use ___ for the blank; correctAnswer is the missing word/phrase
+
+IMPORTANT: Every object MUST include a "type" field set to exactly "mcq", "true_false", or "fill_blank".
+The "correctAnswer" for MCQ MUST be the EXACT full text of the correct option (copy it verbatim from the "options" array).
+
+Return a SINGLE flat JSON array mixing all types together:
+[
+  {
+    "type": "mcq",
+    "question": "What is...?",
+    "options": ["First option", "Second option", "Third option", "Fourth option"],
+    "correctAnswer": "Second option",
+    "explanation": "Because..."
+  },
+  {
+    "type": "true_false",
+    "question": "Statement to evaluate...",
+    "correctAnswer": "True",
+    "explanation": "This is true because..."
+  },
+  {
+    "type": "fill_blank",
     "question": "The ___ is responsible for...",
     "correctAnswer": "mitochondria",
     "explanation": "The correct answer is..."

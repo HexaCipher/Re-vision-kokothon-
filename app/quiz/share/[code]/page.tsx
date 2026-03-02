@@ -13,6 +13,7 @@ import Link from "next/link";
 import { PageTransition, FadeIn, ScaleIn } from "@/components/ui/PageTransition";
 import { QuizLoader } from "@/components/ui/QuizLoader";
 import { AppLogo } from "@/components/ui/AppLogo";
+import { SharedLeaderboard } from "@/components/quiz/SharedLeaderboard";
 
 interface SharedQuiz {
   id: string;
@@ -187,6 +188,9 @@ export default function SharedQuizPage() {
               </p>
             </div>
           </ScaleIn>
+
+          {/* Leaderboard */}
+          <SharedLeaderboard shareCode={shareCode} currentGuestName={guestName || undefined} />
         </div>
       </div>
     </PageTransition>

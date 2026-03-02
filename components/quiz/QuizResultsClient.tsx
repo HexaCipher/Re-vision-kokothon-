@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Target, ArrowRight, RotateCcw, Home, TrendingUp, TrendingDown, Minus, History } from "lucide-react";
+import { Trophy, Target, ArrowRight, RotateCcw, Home, TrendingUp, TrendingDown, Minus, History, Zap } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -37,10 +38,18 @@ export default function QuizResultsClient({
   quiz,
   attempt,
 }: QuizResultsClientProps) {
+  const router = useRouter();
   const [displayScore, setDisplayScore] = useState(0);
   const [attemptHistory, setAttemptHistory] = useState<AttemptHistory[]>([]);
   const [previousBest, setPreviousBest] = useState<number | null>(null);
   const percentage = Math.round((attempt.score / attempt.totalQuestions) * 100);
+
+  // Calculate wrong questions for spaced repetition
+  const wrongQuestions = quiz.questions.filter(
+    (q) =>
+      (attempt.answers[q.id] ?? "").toLowerCase().trim() !==
+      q.correctAnswer.toLowerCase().trim()
+  );
 
   useEffect(() => {
     try {
@@ -145,6 +154,26 @@ export default function QuizResultsClient({
 
   const handleRetake = () => {
     sessionStorage.removeItem(`attempt-${quiz.id}`);
+  };
+
+  const handlePracticeWeak = () => {
+    if (wrongQuestions.length === 0) return;
+    // Re-index questions for the sub-quiz
+    const subQuestions = wrongQuestions.map((q, i) => ({ ...q, id: `q${i + 1}`, orderNumber: i + 1 }));
+    const weakQuizId = `local-weak-${quiz.id}`;
+    const weakQuiz = {
+      id: weakQuizId,
+      title: `${quiz.title} — Weak Questions`,
+      subject: quiz.subject,
+      difficulty: "medium",
+      timerMode: "none",
+      timeLimit: 10,
+      questions: subQuestions,
+      createdAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem(`quiz-${weakQuizId}`, JSON.stringify(weakQuiz));
+    sessionStorage.removeItem(`attempt-${weakQuizId}`);
+    router.push(`/quiz/${weakQuizId}/take`);
   };
 
   return (
@@ -320,6 +349,19 @@ export default function QuizResultsClient({
               </Button>
             </Link>
           </FadeIn>
+
+          {/* Practice Weak Questions */}
+          {wrongQuestions.length > 0 && (
+            <FadeIn delay={0.45} className="mt-3 sm:mt-4">
+              <Button
+                onClick={handlePracticeWeak}
+                className="w-full bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:bg-violet-500/30 text-base sm:text-lg h-12 sm:h-14 rounded-xl font-semibold"
+              >
+                <Zap className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                Practice Weak Questions ({wrongQuestions.length})
+              </Button>
+            </FadeIn>
+          )}
 
           {/* Previous Attempts History */}
           {attemptHistory.length > 1 && (
