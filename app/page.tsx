@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowRight, Upload, Sparkles, Trophy, Zap,
   CheckCircle2, Circle, BookOpen, Clock, TrendingUp,
-  Menu, X, Youtube, Play,
+  Menu, X, Youtube, Play, Smartphone,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from "framer-motion";
@@ -393,6 +393,16 @@ export default function LandingPage() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="hidden sm:flex items-center gap-3 sm:gap-4"
         >
+          <a href="#features">
+            <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium h-10 px-4">
+              Features
+            </Button>
+          </a>
+          <a href="#how-it-works">
+            <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium h-10 px-4">
+              How it works
+            </Button>
+          </a>
           <Link href="/sign-in">
             <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/5 text-sm sm:text-base font-medium h-10 sm:h-11 px-4 sm:px-6">
               Sign in
@@ -427,6 +437,16 @@ export default function LandingPage() {
             className="fixed inset-x-0 top-[65px] z-40 sm:hidden bg-black/95 backdrop-blur-2xl border-b border-white/5"
           >
             <div className="flex flex-col p-4 gap-3">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-center text-slate-400 hover:text-white hover:bg-white/5 text-base font-medium h-12">
+                  Features
+                </Button>
+              </a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-center text-slate-400 hover:text-white hover:bg-white/5 text-base font-medium h-12">
+                  How it works
+                </Button>
+              </a>
               <Link href="/sign-in" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-center text-slate-400 hover:text-white hover:bg-white/5 text-base font-medium h-12">
                   Sign in
@@ -446,6 +466,7 @@ export default function LandingPage() {
           HERO
       ════════════════════════════════════════════════════════════════════ */}
       <section
+        id="hero"
         ref={heroRef}
         className="relative min-h-screen flex items-center overflow-hidden px-4 sm:px-6 md:px-10 lg:px-16 xl:px-24"
       >
@@ -555,7 +576,7 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════════════════════════════════
           WHY — Bento grid with large feature card
       ════════════════════════════════════════════════════════════════════ */}
-      <section className="relative min-h-screen flex flex-col justify-center px-4 sm:px-6 md:px-10 lg:px-16 xl:px-24 py-20 sm:py-24 md:py-32 overflow-hidden">
+      <section id="features" className="relative min-h-screen flex flex-col justify-center px-4 sm:px-6 md:px-10 lg:px-16 xl:px-24 py-20 sm:py-24 md:py-32 overflow-hidden">
         <div className="pointer-events-none absolute inset-0 -z-10"
           style={{ background: "linear-gradient(160deg, rgba(251,191,36,0.06) 0%, transparent 40%, rgba(99,102,241,0.08) 100%)" }}
         />
@@ -611,31 +632,57 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          {/* 10 seconds card — now single column */}
-          <motion.div
-            {...fadeUpProps(0.1)}
-            className="relative rounded-2xl sm:rounded-[2rem] border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.08] to-transparent p-5 sm:p-6 md:p-8 overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:border-amber-500/40 hover:z-10 group-hover/bento:blur-[2px] hover:!blur-none group-hover/bento:opacity-70 hover:!opacity-100"
-          >
-            <div className="pointer-events-none absolute top-0 right-0 w-32 sm:w-40 h-32 sm:h-40 bg-amber-500/10 rounded-full blur-[60px]" />
-            
-            <div className="relative z-10">
-              <div className="w-11 h-11 sm:w-12 md:w-14 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-4 sm:mb-6">
-                <Clock className="w-5 h-5 sm:w-6 md:w-7 sm:h-6 md:h-7 text-amber-400" />
-              </div>
+          {/* Right column: Instant Generation + PWA stacked */}
+          <div className="flex flex-col gap-4 sm:gap-6">
+            {/* Instant Generation card */}
+            <motion.div
+              {...fadeUpProps(0.1)}
+              className="relative rounded-2xl sm:rounded-[2rem] border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.08] to-transparent p-5 sm:p-6 md:p-8 overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:border-amber-500/40 hover:z-10 group-hover/bento:blur-[2px] hover:!blur-none group-hover/bento:opacity-70 hover:!opacity-100"
+            >
+              <div className="pointer-events-none absolute top-0 right-0 w-32 sm:w-40 h-32 sm:h-40 bg-amber-500/10 rounded-full blur-[60px]" />
               
-              <div className="flex items-end gap-2 mb-2 sm:mb-3">
-                <span className="text-4xl sm:text-5xl font-bold text-amber-400" style={{ fontFamily: "var(--font-playfair)" }}>
-                  <AnimatedNumber value={10} />
-                </span>
-                <span className="text-lg sm:text-xl text-amber-400/70 mb-1 font-medium">sec</span>
+              <div className="relative z-10">
+                <div className="w-11 h-11 sm:w-12 md:w-14 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-4 sm:mb-6">
+                  <Clock className="w-5 h-5 sm:w-6 md:w-7 sm:h-6 md:h-7 text-amber-400" />
+                </div>
+                
+                <div className="flex items-end gap-2 mb-2 sm:mb-3">
+                  <span className="text-4xl sm:text-5xl font-bold text-amber-400" style={{ fontFamily: "var(--font-playfair)" }}>
+                    <AnimatedNumber value={10} />
+                  </span>
+                  <span className="text-lg sm:text-xl text-amber-400/70 mb-1 font-medium">sec</span>
+                </div>
+                
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-1.5 sm:mb-2">Instant generation</h3>
+                <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
+                  AI creates your quiz before you finish your coffee.
+                </p>
               </div>
+            </motion.div>
+
+            {/* PWA card */}
+            <motion.div
+              {...fadeUpProps(0.15)}
+              className="relative rounded-2xl sm:rounded-[2rem] border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.08] to-transparent p-5 sm:p-6 md:p-8 overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:border-cyan-500/40 hover:z-10 group-hover/bento:blur-[2px] hover:!blur-none group-hover/bento:opacity-70 hover:!opacity-100"
+            >
+              <div className="pointer-events-none absolute top-0 right-0 w-32 sm:w-40 h-32 sm:h-40 bg-cyan-500/10 rounded-full blur-[60px]" />
               
-              <h3 className="text-lg sm:text-xl font-bold text-white mb-1.5 sm:mb-2">Instant generation</h3>
-              <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-                AI creates your quiz before you finish your coffee.
-              </p>
-            </div>
-          </motion.div>
+              <div className="relative z-10">
+                <div className="w-11 h-11 sm:w-12 md:w-14 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center mb-4 sm:mb-6">
+                  <Smartphone className="w-5 h-5 sm:w-6 md:w-7 sm:h-6 md:h-7 text-cyan-400" />
+                </div>
+
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <span className="px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold uppercase tracking-wider">PWA</span>
+                </div>
+                
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-1.5 sm:mb-2">Works offline</h3>
+                <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
+                  Install on any device. Study anywhere — no internet required.
+                </p>
+              </div>
+            </motion.div>
+          </div>
 
           {/* Second row: 3 cards */}
           <motion.div
@@ -823,7 +870,7 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════════════════════════════════
           CTA
       ════════════════════════════════════════════════════════════════════ */}
-      <section className="relative min-h-screen flex items-center px-4 sm:px-6 md:px-10 lg:px-16 xl:px-24 py-20 sm:py-24 md:py-32 overflow-hidden">
+      <section id="cta" className="relative min-h-screen flex items-center px-4 sm:px-6 md:px-10 lg:px-16 xl:px-24 py-20 sm:py-24 md:py-32 overflow-hidden">
         <div className="pointer-events-none absolute inset-0 -z-10"
           style={{ background: "linear-gradient(140deg, rgba(16,185,129,0.08) 0%, transparent 50%, rgba(99,102,241,0.06) 100%)" }}
         />
