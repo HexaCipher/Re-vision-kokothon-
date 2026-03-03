@@ -39,6 +39,17 @@ Re-vision is a full-stack Progressive Web App that lets students upload or paste
 - Animated number counters, Framer Motion scroll transitions
 - CTA section with results widget demo
 
+### Presentation Mode (`/presentation`)
+- **13-slide PPT-style presentation** for hackathon demos
+- Slides: Title, Team, Problem, Solution, Competitor Comparison, Architecture, Flow Simulation, Tech Stack, Stats, Demo, Future Scope, Monetization, Thank You & Q&A
+- **Keyboard navigation** — Arrow keys, Space, Enter to navigate; F for fullscreen; Escape to exit
+- **Slide indicators** — clickable dots to jump to any slide
+- **Fullscreen mode** — immersive presentation experience
+- Framer Motion animations on each slide
+- Competitor logos with custom Quietude SVG
+- 3-tier pricing cards (Free/Plus/Pro) with feature comparison
+- 12-feature future roadmap grid
+
 ### UI / Brand
 - **"R" wordmark logo** — pure SVG vector path, no font dependency, renders correctly on Vercel and in favicons
 - **Full white wordmark** — "Re-vision" in clean white, Space Grotesk Bold
@@ -94,7 +105,19 @@ Re-vision is a full-stack Progressive Web App that lets students upload or paste
 | Technology | Role | Why |
 |---|---|---|
 | **Google Gemini 2.0 Flash** | Primary AI model | Fast, accurate, structured JSON output via `responseMimeType: "application/json"`. No output parsing needed. |
-| **Groq (Llama 3.3 70B)** | Fallback AI model | Auto-fallback when Gemini rate-limits (20 req/day free). 1,000 req/day free, fastest inference available. |
+| **Groq (Llama 3.3 70B)** | Fallback AI model | Auto-fallback when Gemini rate-limits. Supports up to 6 API keys with intelligent rotation and 60-second cooldown per failed key. |
+
+### Groq Multi-Key Fallback System
+
+For high availability during demos or heavy usage, Re-vision supports up to **6 Groq API keys** with automatic rotation:
+
+- Keys are tried in sequence (`GROQ_API_KEY` → `GROQ_API_KEY_2` → ... → `GROQ_API_KEY_6`)
+- When a key fails (rate limit, auth error, etc.), it enters a **60-second cooldown**
+- Subsequent requests skip cooldown keys and try the next available one
+- On success, the key's cooldown status is cleared
+- Empty keys are automatically skipped
+
+This ensures the app stays responsive even if individual Groq accounts hit their rate limits.
 
 ### YouTube Transcript Pipeline
 
@@ -172,7 +195,13 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 GEMINI_API_KEY=
 
 # Groq (AI fallback) — https://console.groq.com/keys
+# Multi-key fallback: add up to 6 keys for high availability during demos
 GROQ_API_KEY=
+GROQ_API_KEY_2=
+GROQ_API_KEY_3=
+GROQ_API_KEY_4=
+GROQ_API_KEY_5=
+GROQ_API_KEY_6=
 
 # Supadata (YouTube transcripts on Vercel) — https://supadata.ai
 SUPADATA_API_KEY=
@@ -236,6 +265,7 @@ re-vision/
 │   ├── quiz/[id]/               # Take, results, review pages
 │   ├── quiz/share/[code]/       # Guest quiz flow
 │   ├── sign-in/ & sign-up/      # Clerk auth pages (custom styled)
+│   ├── presentation/            # PPT-style hackathon presentation (13 slides)
 │   ├── manifest.ts              # Dynamic PWA web manifest
 │   ├── sw.ts                    # TypeScript service worker (serwist)
 │   └── page.tsx                 # Landing page
@@ -307,6 +337,7 @@ The recommended platform is [Vercel](https://vercel.com):
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase console → Project settings |
 | `GEMINI_API_KEY` | Google AI Studio → Get API key |
 | `GROQ_API_KEY` | Groq Console → API Keys |
+| `GROQ_API_KEY_2` through `GROQ_API_KEY_6` | Additional Groq accounts (optional, for multi-key fallback) |
 | `SUPADATA_API_KEY` | Supadata dashboard → API key |
 
 ---
