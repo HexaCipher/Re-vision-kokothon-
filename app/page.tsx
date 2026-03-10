@@ -403,6 +403,11 @@ export default function LandingPage() {
               How it works
             </Button>
           </a>
+          <Link href="/presentation">
+            <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium h-10 px-4">
+              Presentation
+            </Button>
+          </Link>
           <Link href="/sign-in">
             <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-white/5 text-sm sm:text-base font-medium h-10 sm:h-11 px-4 sm:px-6">
               Sign in
@@ -447,6 +452,11 @@ export default function LandingPage() {
                   How it works
                 </Button>
               </a>
+              <Link href="/presentation" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-center text-slate-400 hover:text-white hover:bg-white/5 text-base font-medium h-12">
+                  Presentation
+                </Button>
+              </Link>
               <Link href="/sign-in" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-center text-slate-400 hover:text-white hover:bg-white/5 text-base font-medium h-12">
                   Sign in
